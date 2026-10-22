@@ -123,7 +123,7 @@ async def payment_page(request: Request):
     
     replacements = {
         "PACKAGE": package,
-        "USER_ID": user_id,
+        "USER_ID": escape(user_id),  # escaped because it comes from the URL
         "PRICE": str(package_info["price"])
     }
     
