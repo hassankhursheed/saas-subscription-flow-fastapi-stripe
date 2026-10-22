@@ -9,7 +9,9 @@
 A complete subscription purchase flow: pick a package, create an account or sign in, pay with Stripe, and see a confirmation. The backend is FastAPI with PostgreSQL. The frontend is HTML, CSS and JavaScript served by FastAPI, with icons and an animated package selection page.
 
 ```text
-Package selection → Sign up (new user) or Sign in (existing user) → Stripe payment → Confirmation
+New user:             Package selection → Sign up → Sign in → Stripe payment → Confirmation
+Existing user:        Package selection → Sign in → Stripe payment → Confirmation
+Returning subscriber: Sign in → Dashboard with the current plan
 ```
 
 ## Features
@@ -19,6 +21,7 @@ Package selection → Sign up (new user) or Sign in (existing user) → Stripe p
 - **Password hashing** with bcrypt (passlib)
 - **Stripe payments**: charges are created through the Stripe API in test mode, and card declines and other Stripe errors return clear messages
 - **Subscription records**: each successful payment is saved with its Stripe payment ID and status
+- **Dashboard for returning subscribers**: signing in again shows the current package, price, status and start date instead of asking for another payment
 - **JSON endpoints** for packages, users and subscriptions
 - **Responsive UI** with the Inter font, icons and animations
 
@@ -44,12 +47,16 @@ sequenceDiagram
     U->>F: Sign up (POST /api/signup)
     F->>D: Save user with bcrypt-hashed password
     U->>F: Sign in (POST /api/signin)
-    F-->>U: Redirect to /payment
-    U->>F: Pay (POST /api/payment with a Stripe token)
-    F->>S: Create charge
-    S-->>F: Charge ID
-    F->>D: Save subscription (status: completed)
-    F-->>U: Redirect to /confirmation
+    alt Already subscribed
+        F-->>U: Redirect to /dashboard
+    else No subscription yet
+        F-->>U: Redirect to /payment
+        U->>F: Pay (POST /api/payment with a Stripe token)
+        F->>S: Create charge
+        S-->>F: Charge ID
+        F->>D: Save subscription (status: completed)
+        F-->>U: Redirect to /confirmation
+    end
 ```
 
 ## Project structure
@@ -64,6 +71,7 @@ sequenceDiagram
 ├── signin.html         # sign in
 ├── payment.html        # Stripe test payment
 ├── confirmation.html   # success page
+├── dashboard.html      # current subscription for returning subscribers
 ├── static/
 │   ├── styles.css
 │   └── scripts.js
@@ -130,6 +138,7 @@ Charges show up in your Stripe Dashboard under **Payments** in test mode.
 | `GET` | `/signin?package=` | Sign-in page |
 | `GET` | `/payment?package=&user_id=` | Payment page |
 | `GET` | `/confirmation` | Confirmation page |
+| `GET` | `/dashboard?user_id=` | Dashboard with the user's current subscription |
 | `POST` | `/api/signup` | Create an account (form data) |
 | `POST` | `/api/signin` | Sign in and continue to payment (form data) |
 | `POST` | `/api/payment` | Charge with Stripe and save the subscription (form: `user_id`, `package`, `token`) |

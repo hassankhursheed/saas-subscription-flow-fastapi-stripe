@@ -9,6 +9,7 @@ import stripe
 import os
 from dotenv import load_dotenv
 from typing import Optional
+from html import escape
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -133,6 +134,37 @@ async def payment_page(request: Request):
 async def confirmation_page():
     """Display the payment confirmation page."""
     return read_html_file("confirmation.html")
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(user_id: int, db: Session = Depends(get_db)):
+    """Display the dashboard with the user's latest subscription."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    subscription = (
+        db.query(models.Subscription)
+        .filter(models.Subscription.user_id == user.id)
+        .order_by(models.Subscription.created_at.desc())
+        .first()
+    )
+
+    # No subscription yet, send the user back to choose a package
+    if not subscription:
+        return RedirectResponse(url="/", status_code=303)
+
+    package_info = PACKAGES.get(subscription.package_name, {})
+
+    replacements = {
+        "FULL_NAME": escape(user.full_name),
+        "PACKAGE_NAME": package_info.get("name", subscription.package_name.title()),
+        "PRICE": f"{subscription.price:.2f}",
+        "STATUS": subscription.status.title(),
+        "SUBSCRIBED_ON": subscription.created_at.strftime("%d %b %Y")
+    }
+
+    return read_html_file("dashboard.html", replacements)
 
 
 
